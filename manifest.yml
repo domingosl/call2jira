@@ -1,0 +1,39 @@
+app:
+  id: ari:cloud:ecosystem::app/b5d473b9-20b2-4242-b9d5-e092ff358210
+
+
+modules:
+  jira:adminPage:
+    - key: call2jira-admin-page
+      resource: configPage
+      title: Call2Jira
+      render: native
+      icon: https://files.domingolupo.com/!FUVZ8xKUJD
+      resolver:
+        function: configHandler
+  webtrigger:
+    - key: call2jira-webtrigger-key
+      function: handleWebTrigger
+  function:
+    - key: configHandler
+      handler: index.handler
+    - key: handleWebTrigger
+      handler: index.handleWebTrigger
+resources:
+  - key: configPage
+    path: src/admin.js
+permissions:
+  scopes:
+    - 'storage:app'
+    - 'read:jira-work'
+    - 'write:jira-work'
+    - 'read:jira-user'
+  external:
+    fetch:
+      backend:
+        - 'https://api.openai.com/v1/chat/completions'
+        - 'https://call2jira-proxy.domingolupo.com'
+      client:
+        - 'https://call2jira-proxy.domingolupo.com'
+    images:
+      - 'https://files.domingolupo.com/!kQFyVPniug'

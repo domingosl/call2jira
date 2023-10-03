@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@forge/api": "^2.18.5",
+    "@forge/bridge": "^2.6.0",
+    "@forge/react": "^8.1.1",
+    "@forge/resolver": "^1.5.16",
+    "@forge/ui": "^1.9.4",
+    "buffer": "^6.0.3",
+    "react": "^18.2.0"
+  }
+}
