@@ -1,8 +1,16 @@
 app:
   id: ari:cloud:ecosystem::app/b5d473b9-20b2-4242-b9d5-e092ff358210
 
-
 modules:
+
+  jira:issueAction:
+    - key: call2jira-issue-action
+      resource: issueAction
+      render: native
+      resolver:
+        function: resolver
+      title: 'C2J: Request more info'
+
   jira:adminPage:
     - key: call2jira-admin-page
       resource: configPage
@@ -10,18 +18,28 @@ modules:
       render: native
       icon: https://files.domingolupo.com/!FUVZ8xKUJD
       resolver:
-        function: configHandler
+        function: resolver
+
   webtrigger:
     - key: call2jira-webtrigger-key
       function: handleWebTrigger
+  trigger:
+    - key: call2jira-comment-on-issue
+      function: commentEventHandler
+      events:
+        - avi:jira:mentioned:comment
   function:
-    - key: configHandler
+    - key: resolver
       handler: index.handler
     - key: handleWebTrigger
       handler: index.handleWebTrigger
+    - key: commentEventHandler
+      handler: index.commentEventHandler
 resources:
   - key: configPage
     path: src/admin.js
+  - key: issueAction
+    path: src/issueaction.js
 permissions:
   scopes:
     - 'storage:app'
@@ -33,6 +51,7 @@ permissions:
       backend:
         - 'https://api.openai.com/v1/chat/completions'
         - 'https://call2jira-proxy.domingolupo.com'
+        - 'https://2100-2-39-6-235.ngrok-free.app'
       client:
         - 'https://call2jira-proxy.domingolupo.com'
     images:

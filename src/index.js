@@ -1,44 +1,12 @@
-import {webTrigger, fetch, storage} from "@forge/api";
+import api, {webTrigger, fetch, storage, properties, route} from "@forge/api";
 import Resolver from '@forge/resolver';
 import { resolve, badRequest, forbidden } from "./helpers/http";
-import newIssue from './services/new-issue';
+import { newIssue, getIssue, addTxtAttachment, addComment } from './services/issues';
+import config from './config';
+import proxy from "./services/proxy";
+import { bugSummary, moreInfoResponseSummary, moreInfoRequestSummary } from "./services/ai";
 
 const resolver = new Resolver();
-
-const proxyApiURL = 'https://call2jira-proxy.domingolupo.com';
-
-async function summary(text) {
-
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: 'Bearer ' + process.env.OPENAI_SECRET_KEY
-        },
-        method: 'POST',
-        body: JSON.stringify({
-            model: "gpt-3.5-turbo",
-            messages: [{
-                role: 'system',
-                content: 'A client just called our company phone number a left a message describing ' +
-                    'a problem it has with a product we develop for them. We will provide you ' +
-                    'a transcription of the message. Your job is to remove rambling, remove any ' +
-                    'information not related with the issue and create a concise summary that will be ' +
-                    'use as a ticket for a developer that needs clear information.' +
-                    'Stop and think the best way to write the ticket from the client\'s recording.'
-            }, {
-                role: 'user',
-                content: text
-            }]
-        })
-
-    });
-
-    const data = await response.json();
-
-    return data?.choices[0]?.message?.content;
-
-}
 
 
 
@@ -55,12 +23,32 @@ export async function handleWebTrigger(req) {
     }
     else if(data.cmd === 'newTranscription') {
 
-        await newIssue(
-            flow.project.value,
-            flow.issueType.id,
-            flow?.assignee?.value ? flow?.assignee?.value : undefined,
-            "TODO",
-            await summary(data.payload.text));
+
+        if(!data.payload.issueId) {
+
+            const ticketFromAi = JSON.parse(await bugSummary(data.payload.text));
+
+            const issue = await newIssue(
+                flow.project.value,
+                flow.issueType.id,
+                flow?.assignee?.value ? flow?.assignee?.value : undefined,
+                ticketFromAi.title,
+                ticketFromAi.description
+            );
+
+            await addTxtAttachment(issue.id, data.payload.text, "phone-call-transcription-" + new Date().getTime());
+
+            await properties.onJiraIssue(issue.id).set("c2jData", {
+                number: flow.number,
+                extension: flow.extension,
+                callerNumber: data.payload.callerNumber,
+                callerCountry: data.payload.callerCountry
+            })
+        }
+        else {
+            const summary = await moreInfoResponseSummary(data.payload.text);
+            await addComment(data.payload.issueId, summary);
+        }
 
         return resolve();
     }
@@ -78,6 +66,61 @@ const getFlow = async (numberId, extension) => {
     return flows.find(el => el.number.value === numberId && el.extension === extension);
 
 }
+
+resolver.define('makeCall', async ({payload}) => {
+
+    const issueId = payload.context?.extension?.issue?.id;
+    if(!issueId)
+        return { error: 'No issue ID found!'}
+
+    const issue = await getIssue(issueId);
+
+    payload.message = await moreInfoRequestSummary(issue.fields.summary, payload.message);
+
+    const c2jData = await properties.onJiraIssue(payload.context.extension.issue.id).get("c2jData");
+
+    if(!c2jData)
+        return { error: 'The issue was not created from a phone call' }
+
+    await proxy.post('outgoing-call/make', {
+        ...payload,
+        ...c2jData,
+        issueKey: issue.key,
+        webhook: await webTrigger.getUrl("call2jira-webtrigger-key")
+    })
+
+    await addComment(issueId,
+        "A request for more information has been queued. " +
+        "A call will be made soon to " + c2jData.callerNumber + ". " +
+        "Please wait for an update here in the comments." )
+
+});
+
+resolver.define('test', async () => {
+
+
+    //return;
+    const flows = await getAllFlows();
+    const flow = flows[0];
+    const issue = await newIssue(flow.project.value,
+        flow.issueType.id,
+        flow?.assignee?.value ? flow?.assignee?.value : undefined,
+        "Test title",
+        "Test description", { caller: "+44123123123"});
+
+    console.log("1", issue)
+
+    await properties.onJiraIssue(issue.id).set("foo", 123)
+
+    console.log("2", await getIssue(issue.id))
+
+
+    //await addTxtAttachment(issue.id, "This is a file with \n a new line!", "phone-call-transcription-" + new Date().getTime());
+
+
+
+
+})
 
 resolver.define('getFlows', async () => {
     return getAllFlows();
@@ -98,7 +141,7 @@ const freeExtension = async (numberId, extension) => {
 
     try {
 
-        await fetch(proxyApiURL + '/extensions/' + extension + '/free', {
+        await fetch(config.proxyBaseURL + '/extensions/' + extension + '/free', {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -115,14 +158,14 @@ const freeExtension = async (numberId, extension) => {
         //TODO: Manage Error 403
         return {error};
     }
-}
+};
 
 resolver.define('getExtension', async ({context, payload}) => {
 
     const webhook = await webTrigger.getUrl("call2jira-webtrigger-key");
     let response;
     try {
-        response = await fetch(proxyApiURL + '/extensions', {
+        response = await fetch(config.proxyBaseURL + '/extensions', {
             method: 'POST',
             headers: {
                 'Accept': 'application/json',
@@ -142,5 +185,8 @@ resolver.define('getExtension', async ({context, payload}) => {
 
 });
 
+export const commentEventHandler = (payload) => {
+    console.log("EV", payload.eventType, payload.issue.id, payload.comment);
+}
 
 export const handler = resolver.getDefinitions();

@@ -6,6 +6,7 @@
     "@forge/resolver": "^1.5.16",
     "@forge/ui": "^1.9.4",
     "buffer": "^6.0.3",
+    "form-data": "^4.0.0",
     "react": "^18.2.0"
   }
 }

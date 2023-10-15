@@ -16,12 +16,10 @@ import ForgeReconciler, {
     TextArea,
     Image, Table, Head, Row, Cell
 } from '@forge/react';
-import {fetch} from '@forge/api';
 import {requestJira, invoke} from '@forge/bridge';
 import Br from './components/Br';
 import ConfirmDialog from './components/ConfirmDialog';
-
-const proxyApiURL = 'https://call2jira-proxy.domingolupo.com';
+import proxy from './services/proxy';
 
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
@@ -58,13 +56,17 @@ const App = () => {
     useEffect(async () => {
 
         try {
+            //openModal("HELLO WORLD!");
+            //await invoke('test');
 
             const _flows = await invoke('getFlows');
             setFlows(_flows);
-            console.log(_flows);
-            const response = await fetch(proxyApiURL + '/numbers/countries');
 
-            setCountries((await response.json()).data);
+            console.log(_flows);
+
+            const response = await proxy.get('numbers/countries');
+
+            setCountries(response.data);
             setProjects(await getProjects());
             setAssignees(await getAssignees());
 
@@ -79,14 +81,14 @@ const App = () => {
     }, []);
 
     const countrySelectChange = async (selected) => {
-        const response = await fetch(proxyApiURL + '/numbers/countries/' + selected.value + '/places');
-        setPlaces((await response.json()).data);
+        const response = await proxy.get('numbers/countries/' + selected.value + '/places');
+        setPlaces(response.data);
         setCountry(selected.value);
     }
 
     const placeSelectChange = async (selected) => {
-        const response = await fetch(proxyApiURL + '/numbers?country=' + country + '&place=' + selected.value);
-        setNumbers((await response.json()).data);
+        const response = await proxy.get('numbers?country=' + country + '&place=' + selected.value);
+        setNumbers(response.data);
         setPlace(selected.value);
     }
 
@@ -219,8 +221,6 @@ const App = () => {
                         </Button>
                     </Stack>
                 </Inline>
-
-
 
                     <Br />
 
@@ -356,8 +356,6 @@ const App = () => {
                     </Form>
 
                 </>}
-
-
 
 
             </Fragment> }
