@@ -18,7 +18,7 @@ import ForgeReconciler, {
 } from '@forge/react';
 import {requestJira, invoke} from '@forge/bridge';
 import Br from './components/Br';
-import ConfirmDialog from './components/ConfirmDialog';
+import FlowConfirmDialog from './components/FlowConfirmDialog';
 import proxy from './services/proxy';
 
 function capitalizeFirstLetter(string) {
@@ -191,7 +191,7 @@ const App = () => {
     return (
 
         <>
-            {isModalOpen && (<ConfirmDialog number={number.label} extension={extension} project={project.label}
+            {isModalOpen && (<FlowConfirmDialog number={number.label} extension={extension} project={project.label}
                                             onClose={closeModal}/>)}
             {appIsLoading && <Fragment><Image
                 src="https://files.domingolupo.com/!kQFyVPniug"

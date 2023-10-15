@@ -1,7 +1,7 @@
 import React from "react";
 import {ModalDialog, SectionMessage, StatusLozenge, Text} from "@forge/react";
 
-const ConfirmDialog = (props) => {
+const FlowConfirmDialog = (props) => {
 
     return <ModalDialog header="" onClose={props.onClose} closeButtonText='Ok'>
 
@@ -18,4 +18,4 @@ const ConfirmDialog = (props) => {
 
 }
 
-export default ConfirmDialog;
+export default FlowConfirmDialog;
