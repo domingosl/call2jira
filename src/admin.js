@@ -1,5 +1,5 @@
-import React, {useEffect, useState, Fragment} from 'react';
-import {AdminPage} from '@forge/ui';
+import React, {useEffect, useState, Fragment} from 'react'
+import {AdminPage} from '@forge/ui'
 import ForgeReconciler, {
     Text,
     Select,
@@ -14,12 +14,13 @@ import ForgeReconciler, {
     Button,
     SectionMessage,
     TextArea,
-    Image, Table, Head, Row, Cell
-} from '@forge/react';
-import {requestJira, invoke} from '@forge/bridge';
-import Br from './components/Br';
-import FlowConfirmDialog from './components/FlowConfirmDialog';
-import proxy from './services/proxy';
+    Image, Table, Head, Row, Cell, ModalDialog
+} from '@forge/react'
+import {requestJira, invoke} from '@forge/bridge'
+import Br from './components/Br'
+import FlowConfirmDialog from './components/FlowConfirmDialog'
+import proxy from './services/proxy'
+import { bugs as bugReportingMessageDefault } from './greeting-message-defaults'
 
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
@@ -48,36 +49,51 @@ const App = () => {
     const [issueType, setIssueType] = useState(undefined);
 
     const [issueTypesIsLoading, setIssueTypesIsLoading] = useState(false);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isFlowConfirmModalOpen, setIsFlowConfirmModalOpen] = useState(false);
+
+    const [greetingMessage, setGreetingMessage] = useState("");
+
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: "",
+        message: "",
+        onClose: () => {}
+    });
+
+    const [errorModal, setErrorModal] = useState({
+        isOpen: false,
+        message: ""
+    });
 
     const [extension, setExtension] = useState(undefined);
 
 
+    const greetingMessageChange = (message) => {
+        setGreetingMessage(message)
+    }
+
+
+
     useEffect(async () => {
 
-        try {
-            //openModal("HELLO WORLD!");
-            //await invoke('test');
+        const _flows = await invoke('getFlows');
+        setFlows(_flows);
 
-            const _flows = await invoke('getFlows');
-            setFlows(_flows);
+        const response = await proxy.get('numbers/countries');
 
-            console.log(_flows);
+        if(response.error)
+            return setErrorModal({
+                message: "The application servers are not available at the moment, please try again later",
+                isOpen: true
+            })
 
-            const response = await proxy.get('numbers/countries');
+        setCountries(response.data);
+        setProjects(await getProjects());
+        setAssignees(await getAssignees());
 
-            setCountries(response.data);
-            setProjects(await getProjects());
-            setAssignees(await getAssignees());
+        setAppIsLoading(false);
 
-            setAppIsLoading(false);
 
-        } catch (error) {
-
-            //TODO: Manage this
-            console.log("ERROR!", error);
-
-        }
     }, []);
 
     const countrySelectChange = async (selected) => {
@@ -133,7 +149,17 @@ const App = () => {
         setIssueType({name: it.name, id: it.id});
     }
 
+    const purposeTypeChange = selected => {
+        //TODO: Manage more use cases
+        setGreetingMessage(selected.value === 'bugReporting' ? bugReportingMessageDefault : "")
+    }
+
     const flowSave = async event => {
+
+        if(event.message.length > 300) {
+            console.log("TOO LONG")
+            return false
+        }
 
         const response = await invoke('getExtension', {numberId: event.phoneNumber.value});
 
@@ -156,7 +182,7 @@ const App = () => {
         await refreshFlows();
 
         setForceAddFlowView(false);
-        setIsModalOpen(true);
+        setIsFlowConfirmModalOpen(true);
 
 
     }
@@ -166,7 +192,7 @@ const App = () => {
     }
 
     const closeModal = () => {
-        setIsModalOpen(false);
+        setIsFlowConfirmModalOpen(false);
 
         setCountry(undefined);
         setPlace(undefined);
@@ -191,7 +217,25 @@ const App = () => {
     return (
 
         <>
-            {isModalOpen && (<FlowConfirmDialog number={number.label} extension={extension} project={project.label}
+
+            { errorModal.isOpen && (
+                <ModalDialog header='Error' onClose={()=>setErrorModal({...errorModal, isOpen: false})} closeButtonText='Close'>
+                    <Text>{errorModal.message}</Text>
+                </ModalDialog>
+            ) }
+
+            { confirmModal.isOpen && (
+            <ModalDialog header={confirmModal.title} onClose={()=>setConfirmModal({...confirmModal, isOpen: false})} closeButtonText='Cancel'>
+                <Form submitButtonText={'Confirm'} onSubmit={async ()=> {
+                    await confirmModal.next()
+                    setConfirmModal({...confirmModal, isOpen: false})
+                }}>
+                    <Text>{confirmModal.message}</Text>
+                </Form>
+            </ModalDialog>
+            ) }
+
+            {isFlowConfirmModalOpen && (<FlowConfirmDialog number={number.label} extension={extension} project={project.label}
                                             onClose={closeModal}/>)}
             {appIsLoading && <Fragment><Image
                 src="https://files.domingolupo.com/!kQFyVPniug"
@@ -258,7 +302,17 @@ const App = () => {
                                     <Text>{flow?.assignee?.label}</Text>
                                 </Cell>
                                 <Cell>
-                                    <Button appearance='subtle-link' onClick={()=>deleteFlow(flow.number.value, flow.extension)}>DELETE</Button>
+                                    <Button appearance='subtle-link' onClick={
+                                        ()=> {
+                                            setConfirmModal({
+                                                isOpen: true,
+                                                title: 'Confirm flow deletion',
+                                                message: 'Are you sure you want to delete your incoming call flow?',
+                                                next: () => deleteFlow(flow.number.value, flow.extension)
+                                            })
+
+                                        }
+                                    }>DELETE</Button>
                                     <Button appearance='link'>EDIT</Button>
                                 </Cell>
                             </Row>
@@ -341,13 +395,33 @@ const App = () => {
                                 {assignees.map(assignee => <Option label={assignee.displayName} value={assignee.id}/>)}
                             </Select>
 
-                            <Br/><Heading size='medium'>Greeting message</Heading>
+                            { issueType && <>
+                                <Br/><Heading size='medium'>Purpose of the incoming calls</Heading>
 
-                            <TextArea
-                                label="Message"
-                                name="message"
-                                defaultValue="Please describe the issue in as much detail as possible, including any error messages, unusual behavior, and if possible, specific steps that led to the problem. Your input is crucial in helping us identify and resolve the issue promptly. Please leave your detailed message after the beep. You have a maximum of 2 minutes to provide the necessary information. Thank you."
-                            />
+                                <SectionMessage appearance="info">
+                                    <Text>
+                                        Defining the purpose of the call in advance helps the Call2Jira AI to correctly contextualize it.
+                                    </Text>
+                                    <Text>
+                                        Use different flows for different purpose, and provide your customers with the correct extension for
+                                        the correct use case.
+                                    </Text>
+                                </SectionMessage>
+
+                                <Select label="Purpose type" name="purposeType" onChange={purposeTypeChange} isRequired={true}>
+                                    <Option label="Bug reporting" value={'bugReporting'}/>
+                                </Select>
+
+                                <TextArea
+                                    label="Greeting message"
+                                    name="message"
+                                    onChange={greetingMessageChange}
+                                    isRequired={true}
+                                    defaultValue={greetingMessage}
+                                />
+                                <Text>Characters left: {300 - greetingMessage.length}</Text>
+                            </> }
+
 
 
                         </>

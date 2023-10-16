@@ -1,0 +1,1 @@
+export const bugs = "Please describe the issue in detail, including any error messages, unusual behavior, and if possible, specific steps that led to the problem. You have a maximum of 2 minutes to provide the necessary information. When you are done, just end up the call. Please leave your message after the beep"
