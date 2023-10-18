@@ -10,7 +10,8 @@ export default (text) => {
         {{text}}
 
     Your task is to generate a JSON format output containing a "title" key for the ticket and a "description" 
-    key containing a clear and concise description of the issue.`
+    key containing a clear and concise description of the issue, you must use markdown in the description of the issue
+    to improve format and remark import parts.`
 
     return tpl.replace('{{text}}', text);
 

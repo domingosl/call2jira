@@ -33,7 +33,7 @@ export async function handleWebTrigger(req) {
                 flow.issueType.id,
                 flow?.assignee?.value ? flow?.assignee?.value : undefined,
                 ticketFromAi.title,
-                ticketFromAi.description
+                "**Caller phone:**" + flow.number.label + "\n\n  " + ticketFromAi.description
             );
 
             await addTxtAttachment(issue.id, data.payload.text, "phone-call-transcription-" + new Date().getTime());
@@ -47,7 +47,7 @@ export async function handleWebTrigger(req) {
         }
         else {
             const summary = await moreInfoResponseSummary(data.payload.text);
-            await addComment(data.payload.issueId, summary);
+            await addComment(data.payload.issueId, "**[CUSTOMER UPDATE]** " + summary);
         }
 
         return resolve();
@@ -67,20 +67,29 @@ const getFlow = async (numberId, extension) => {
 
 }
 
+resolver.define('isC2JIssue', async ({payload}) => {
+
+    const issueId = payload.context?.extension?.issue?.id;
+
+    if(!issueId)
+        return false;
+
+    const c2jData = await properties.onJiraIssue(issueId).get("c2jData");
+
+    if(!c2jData)
+        return false
+
+    return c2jData
+
+})
+
 resolver.define('makeCall', async ({payload}) => {
 
     const issueId = payload.context?.extension?.issue?.id;
-    if(!issueId)
-        return { error: 'No issue ID found!'}
-
     const issue = await getIssue(issueId);
+    const c2jData = await properties.onJiraIssue(issueId).get("c2jData");
 
     payload.message = await moreInfoRequestSummary(issue.fields.summary, payload.message);
-
-    const c2jData = await properties.onJiraIssue(payload.context.extension.issue.id).get("c2jData");
-
-    if(!c2jData)
-        return { error: 'The issue was not created from a phone call' }
 
     await proxy.post('outgoing-call/make', {
         ...payload,
@@ -91,7 +100,7 @@ resolver.define('makeCall', async ({payload}) => {
 
     await addComment(issueId,
         "A request for more information has been queued. " +
-        "A call will be made soon to " + c2jData.callerNumber + ". " +
+        "A call will be made soon to **" + c2jData.callerNumber + "**. " +
         "Please wait for an update here in the comments." )
 
 });
@@ -139,25 +148,12 @@ resolver.define('deleteFlow', async ({payload}) => {
 
 const freeExtension = async (numberId, extension) => {
 
-    try {
+    await proxy.post('extensions/' + extension + '/free', {
+        numberId
+    })
 
-        await fetch(config.proxyBaseURL + '/extensions/' + extension + '/free', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                numberId
-            })
-        });
+    return true;
 
-        return true;
-
-    } catch (error) {
-        //TODO: Manage Error 403
-        return {error};
-    }
 };
 
 resolver.define('getExtension', async ({context, payload}) => {
@@ -187,6 +183,10 @@ resolver.define('getExtension', async ({context, payload}) => {
 
 export const commentEventHandler = (payload) => {
     console.log("EV", payload.eventType, payload.issue.id, payload.comment);
+}
+
+export const workerRun = async () => {
+    await proxy.get('status?fromForge=true')
 }
 
 export const handler = resolver.getDefinitions();

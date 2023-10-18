@@ -1,5 +1,7 @@
 import api, {route} from "@forge/api";
 const FormData = require('form-data');
+import fnTranslate from "md-to-adf";
+
 
 export const newIssue = async (project, issueType, assignee, summary = "Issue from call", description) => {
 
@@ -7,8 +9,7 @@ export const newIssue = async (project, issueType, assignee, summary = "Issue fr
         update: {},
         fields: {
             labels: [
-                "call2jira",
-                "phone_call_generated"
+                "call2jira"
             ],
             issuetype: {
                 id: issueType
@@ -19,21 +20,7 @@ export const newIssue = async (project, issueType, assignee, summary = "Issue fr
             assignee: {
                 id: assignee
             },
-            description: {
-                type: "doc",
-                version: 1,
-                content: [
-                    {
-                        type: "paragraph",
-                        content: [
-                            {
-                                "text": description,
-                                "type": "text"
-                            }
-                        ]
-                    }
-                ]
-            }
+            description: fnTranslate(description)
         }
     };
 
@@ -92,21 +79,7 @@ export const addComment = async (issueId, comment) => {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            "body": {
-                "content": [
-                    {
-                        "content": [
-                            {
-                                "text": comment,
-                                "type": "text"
-                            }
-                        ],
-                        "type": "paragraph"
-                    }
-                ],
-                "type": "doc",
-                "version": 1
-            }
+            "body": fnTranslate(comment)
         })
     })
 

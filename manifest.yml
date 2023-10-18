@@ -2,7 +2,10 @@ app:
   id: ari:cloud:ecosystem::app/b5d473b9-20b2-4242-b9d5-e092ff358210
 
 modules:
-
+  scheduledTrigger:
+    - key: call2jira-scheduled-trigger
+      function: workerRun
+      interval: hour
   jira:issueAction:
     - key: call2jira-issue-action
       resource: issueAction
@@ -35,6 +38,8 @@ modules:
       handler: index.handleWebTrigger
     - key: commentEventHandler
       handler: index.commentEventHandler
+    - key: workerRun
+      handler: index.workerRun
 resources:
   - key: configPage
     path: src/admin.js
