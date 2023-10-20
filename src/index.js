@@ -91,6 +91,8 @@ resolver.define('makeCall', async ({payload}) => {
 
     payload.message = await moreInfoRequestSummary(issue.fields.summary, payload.message);
 
+    //return console.log(payload.utcOffset, payload.message)
+
     await proxy.post('outgoing-call/make', {
         ...payload,
         ...c2jData,
