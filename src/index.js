@@ -33,7 +33,7 @@ export async function handleWebTrigger(req) {
                 flow.issueType.id,
                 flow?.assignee?.value ? flow?.assignee?.value : undefined,
                 ticketFromAi.title,
-                "**Caller phone:**" + flow.number.label + "\n\n  " + ticketFromAi.description
+                "**Caller phone:**" + data.payload.callerNumber + "\n\n  " + ticketFromAi.description
             );
 
             await addTxtAttachment(issue.id, data.payload.text, "phone-call-transcription-" + new Date().getTime());
